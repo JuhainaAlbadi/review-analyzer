@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Review Analyzer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f5f5f5; color: #222; }
+    header { background: #1a1a2e; color: white; padding: 1rem 2rem; }
+    header h1 { font-size: 1.4rem; }
+    .container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #333; }
+
+    /* Products */
+    .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .product-card { background: white; border-radius: 10px; padding: 1.2rem; border: 1px solid #e0e0e0; cursor: pointer; transition: box-shadow 0.2s; }
+    .product-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .product-card h3 { font-size: 1rem; margin-bottom: 4px; }
+    .product-card .category { font-size: 12px; color: #888; margin-bottom: 8px; }
+    .stars { color: #f5a623; font-size: 14px; }
+
+    /* Forms */
+    .form-box { background: white; border-radius: 10px; padding: 1.5rem; border: 1px solid #e0e0e0; margin-bottom: 2rem; }
+    .form-box input, .form-box textarea, .form-box select {
+      width: 100%; padding: 8px 10px; margin-bottom: 10px;
+      border: 1px solid #ccc; border-radius: 6px; font-size: 14px;
+    }
+    .form-box textarea { height: 80px; resize: vertical; }
+    .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .btn-primary { background: #1a1a2e; color: white; }
+    .btn-ai { background: #6c47ff; color: white; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    /* Reviews */
+    .review-card { background: white; border-radius: 10px; padding: 1rem 1.2rem; border: 1px solid #e0e0e0; margin-bottom: 1rem; }
+    .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .review-author { font-weight: 500; font-size: 14px; }
+    .review-body { font-size: 14px; color: #444; margin-bottom: 10px; }
+
+    /* Analysis panel */
+    .analysis-panel { background: #f0ebff; border-radius: 8px; padding: 1rem; margin-top: 8px; font-size: 13px; }
+    .sentiment-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; margin-bottom: 8px; }
+    .positive { background: #d4f5e2; color: #1a7a4a; }
+    .neutral  { background: #fff3cd; color: #856404; }
+    .negative { background: #fde8e8; color: #9b1c1c; }
+    .themes { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .theme-tag { background: #e0d7ff; color: #4a2f9e; padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+
+    /* Summary panel */
+    .summary-panel { background: white; border-radius: 10px; padding: 1.5rem; border: 1px solid #e0e0e0; margin-bottom: 2rem; }
+    .summary-panel h3 { font-size: 1rem; margin-bottom: 1rem; }
+    .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .pros h4 { color: #1a7a4a; margin-bottom: 6px; font-size: 13px; }
+    .cons h4 { color: #9b1c1c; margin-bottom: 6px; font-size: 13px; }
+    ul { padding-left: 1.2rem; font-size: 13px; color: #444; }
+    li { margin-bottom: 4px; }
+    .hidden { display: none; }
+    #back-btn { margin-bottom: 1rem; background: #eee; color: #333; }
+    body.dark { background: #1a1b2e; color: #cbd5e1; }
+    body.dark header { background: #0f1117; }
+    body.dark .product-card,
+    body.dark .review-card,
+    body.dark .form-box,
+    body.dark .summary-panel { background: #242538; border-color: #363750; color: #cbd5e1; }
+    body.dark .product-card h3,
+    body.dark .review-author { color: #e2e8f0; }
+    body.dark h2 { color: #e2e8f0; }
+    body.dark .category,
+    body.dark .review-body { color: #94a3b8; }
+    body.dark .form-box input,  
+    body.dark .form-box textarea,
+    body.dark .form-box select { background: #2e2f45; border-color: #464760; color: #cbd5e1; }
+    body.dark select { background: #2e2f45; border-color: #464760; color: #cbd5e1; }
+    body.dark .analysis-panel { background: #2a2640; }
+    body.dark .theme-tag { background: #312d5a; color: #a89ee8; }
+    body.dark .btn { color: #cbd5e1; border-color: #464760; }
+    body.dark .btn:hover { background: #2e2f45; }
+    @keyframes float { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-6px)} }
+@keyframes wave { 0%,100%{transform:rotate(0deg)} 20%{transform:rotate(-25deg)} 50%{transform:rotate(20deg)} 80%{transform:rotate(-10deg)} }
+@keyframes blink { 0%,88%,100%{transform:scaleY(1)} 92%{transform:scaleY(0.05)} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+@keyframes bubble-in { 0%{opacity:0;transform:scale(0.5)} 100%{opacity:1;transform:scale(1)} }
+
+.robot-btn { position:fixed; bottom:24px; right:24px; cursor:pointer; z-index:1000; width:90px; }
+#robot-container { position:fixed; bottom:0; right:24px; cursor:pointer; z-index:1000; width:150px; transform:translateY(128px); transition:transform 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+#robot-container.robot-open { transform:translateY(-24px); }
+#robot-container .robot-bubble { opacity:0; transition:opacity 0.2s; }
+#robot-container.robot-open .robot-bubble { opacity:1; transition:opacity 0.3s 0.3s; }
+.robot-body-g { animation: float 2.5s ease-in-out infinite; }
+.robot-arm-wave { animation: wave 1.8s ease-in-out infinite; transform-origin: 14px 10px; }
+.eye-l { animation: blink 3.5s ease-in-out infinite; transform-origin: 45px 42px; }
+.eye-r { animation: blink 3.5s ease-in-out infinite 0.1s; transform-origin: 75px 42px; }
+.chest-pulse { animation: pulse 1.5s ease-in-out infinite; }
+.speech-bubble { animation: bubble-in 0.4s ease-out; transform-origin: bottom left; }
+.chat-window { position:fixed; bottom:260px; right:24px; width:320px; background:white; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,0.15); z-index:1000; display:none; flex-direction:column; overflow:hidden; border:1px solid #e0e0e0; }
+.chat-window.open { display:flex; }
+.chat-header { background:#6c47ff; color:white; padding:12px 16px; font-size:14px; font-weight:500; display:flex; justify-content:space-between; align-items:center; }
+.chat-messages { flex:1; overflow-y:auto; padding:12px; max-height:300px; display:flex; flex-direction:column; gap:8px; }
+.msg { padding:8px 12px; border-radius:12px; font-size:13px; line-height:1.5; max-width:85%; }
+.msg.bot { background:#f0ebff; color:#333; align-self:flex-start; border-bottom-left-radius:4px; }
+.msg.user { background:#6c47ff; color:white; align-self:flex-end; border-bottom-right-radius:4px; }
+.msg.typing { color:#888; font-style:italic; }
+.chat-input-row { display:flex; gap:6px; padding:10px; border-top:1px solid #eee; }
+.chat-input-row input { flex:1; padding:7px 10px; border:1px solid #ccc; border-radius:8px; font-size:13px; }
+.chat-input-row button { background:#6c47ff; color:white; border:none; border-radius:8px; padding:7px 12px; cursor:pointer; font-size:13px; }
+body.dark .chat-window { background:#242538; border-color:#363750; }
+body.dark .msg.bot { background:#2a2640; color:#cbd5e1; }
+body.dark .chat-input-row { border-color:#363750; }
+body.dark .chat-input-row input { background:#2e2f45; border-color:#464760; color:#cbd5e1; }
+body.dark #stats-box { background: #242538; color: #cbd5e1; }
+body.dark #stats-box h2, body.dark #stats-box h3 { color: #e2e8f0; }
+body.dark #stats-content div[style*="background:#f5f5f5"] { background: #2e2f45 !important; }
+body.dark #stats-content div[style*="background:#f9f9f9"] { background: #2a2640 !important; }
+body.dark #stats-content div[style*="background:#eee"] { background: #363750 !important; }  
+  
+  </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+<header style="display:flex;justify-content:space-between;align-items:center">
+  <h1>AI Review Analyzer</h1>
+  <div style="display:flex;gap:10px;align-items:center">
+    <button onclick="showStats()" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:white;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px">📊 Stats</button>
+    <button onclick="toggleDark()" id="theme-btn" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:white;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px">🌙 Dark</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Products View -->
+  <div id="products-view">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+  <h2>Products</h2>
+  <input id="search" type="text" placeholder="Search products..." 
+    oninput="filterProducts(this.value)"
+    style="padding:7px 12px;border:1px solid #ccc;border-radius:6px;font-size:13px;width:220px"/>
+</div>
+<div class="products-grid" id="products-grid"></div>
+
+    <div class="form-box">
+      <h2 style="margin-bottom:1rem">Add Product</h2>
+      <input id="new-name" placeholder="Product name" />
+      <input id="new-category" placeholder="Category" />
+      <input id="new-image" placeholder="Image URL (optional)" />
+      <textarea id="new-desc" placeholder="Description"></textarea>
+      <button class="btn btn-primary" onclick="addProduct()">Add Product</button>
+    </div>
+  </div>
+
+  <!-- Product Detail View -->
+<div id="detail-view" class="hidden">
+  <button class="btn" id="back-btn" onclick="showProducts()">← Back</button>
+
+  <div id="summary-panel" class="summary-panel hidden"></div>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem">
+    <h2 id="detail-title"></h2>
+    <button class="btn btn-ai" onclick="loadSummary()">AI Summary</button>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-bottom:1rem;align-items:center">
+    <select id="filter-sentiment" onchange="loadReviews(this.value, document.getElementById('filter-rating').value)" style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+      <option value="">All Sentiments</option>
+      <option value="positive">Positive</option>
+      <option value="neutral">Neutral</option>
+      <option value="negative">Negative</option>
+    </select>
+    <select id="filter-rating" onchange="loadReviews(document.getElementById('filter-sentiment').value, this.value)" style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+      <option value="">All Ratings</option>
+      <option value="5">⭐⭐⭐⭐⭐ 5</option>
+      <option value="4">⭐⭐⭐⭐ 4</option>
+      <option value="3">⭐⭐⭐ 3</option>
+      <option value="2">⭐⭐ 2</option>
+      <option value="1">⭐ 1</option>
+    </select>
+    <button class="btn btn-sm" onclick="loadReviews()" style="background:#eee;color:#333">Clear</button>
+  </div>
+
+  <div id="reviews-list"></div>
+
+</div>
+
+<script>
+const API = "http://localhost:8000";
+let currentProduct = null;
+
+// ── Helpers ──────────────────────────────────────────
+function stars(avg) {
+  if (!avg) return "No ratings yet";
+  const full = Math.round(avg);
+  return "★".repeat(full) + "☆".repeat(5 - full) + ` (${avg})`;
+}
+
+// ── Products View ─────────────────────────────────────
+
+async function addProduct() {
+  const name = document.getElementById("new-name").value.trim();
+  const category = document.getElementById("new-category").value.trim();
+  const description = document.getElementById("new-desc").value.trim();
+  const image_url = document.getElementById("new-image").value.trim();
+  if (!name) return alert("Product name is required");
+
+  await fetch(`${API}/products/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, category, description, image_url })
+  });
+
+  document.getElementById("new-name").value = "";
+  document.getElementById("new-category").value = "";
+  document.getElementById("new-desc").value = "";
+  document.getElementById("new-image").value = ""
+  loadProducts();
+}
+
+// ── Detail View ───────────────────────────────────────
+function showProducts() {
+  document.getElementById("products-view").classList.remove("hidden");
+  document.getElementById("detail-view").classList.add("hidden");
+  loadProducts();
+}
+
+async function showDetail(id, name) {
+  currentProduct = id;
+  document.getElementById("products-view").classList.add("hidden");
+  document.getElementById("detail-view").classList.remove("hidden");
+  document.getElementById("detail-title").textContent = name;
+  document.getElementById("summary-panel").classList.add("hidden");
+  loadReviews();
+}
+
+async function loadReviews(sentimentFilter = '', ratingFilter = '') {
+  let url = `${API}/products/${currentProduct}/reviews`;
+  const params = [];
+  if (sentimentFilter) params.push(`sentiment=${sentimentFilter}`);
+  if (ratingFilter) params.push(`rating=${ratingFilter}`);
+  if (params.length) url += '?' + params.join('&');
+
+  const res = await fetch(url);
+  const reviews = await res.json();
+  const list = document.getElementById("reviews-list");
+  list.innerHTML = "";
+
+  if (reviews.length === 0) {
+    list.innerHTML = '<p style="color:#888;font-size:14px;padding:1rem 0">No reviews found.</p>';
+    return;
+  }
+
+  reviews.forEach(r => {
+    list.innerHTML += `
+      <div class="review-card" id="review-${r.id}">
+        <div class="review-header">
+          <span class="review-author">${r.author}</span>
+          <span class="stars">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</span>
+        </div>
+        <div class="review-body">${r.body}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ai btn-sm" onclick="analyzeReview(${r.id})">Analyze with AI</button>
+        <button class="btn btn-sm" onclick="deleteReview(${r.id})" style="background:#fde8e8;color:#9b1c1c;border:none">Delete</button>
+        </div>
+        <div id="analysis-${r.id}"></div>
+      </div>`;
+  });
+}
+
+async function analyzeReview(reviewId) {
+  const btn = event.target;
+  btn.textContent = "Analyzing...";
+  btn.disabled = true;
+
+  const res = await fetch(`${API}/reviews/${reviewId}/analyze`, { method: "POST" });
+  const data = await res.json();
+
+  btn.textContent = "Analyze with AI";
+  btn.disabled = false;
+
+  if (!res.ok) return alert("Error: " + data.detail);
+
+  document.getElementById(`analysis-${reviewId}`).innerHTML = `
+    <div class="analysis-panel">
+      <span class="sentiment-badge ${data.sentiment}">${data.sentiment}</span>
+      <div class="themes">
+        ${data.key_themes.map(t => `<span class="theme-tag">${t}</span>`).join("")}
+      </div>
+      <p>${data.summary}</p>
+      <p style="margin-top:6px;color:#888;font-size:11px">Confidence: ${(data.confidence * 100).toFixed(0)}%</p>
+      <button class="btn btn-sm" onclick="exportPDF(${reviewId})" style="margin-top:8px;background:#6c47ff;color:white">Export PDF</button>
+    </div>`;
+}
+
+async function loadSummary() {
+  const panel = document.getElementById("summary-panel");
+  panel.innerHTML = "<p>Loading AI summary...</p>";
+  panel.classList.remove("hidden");
+
+  const res = await fetch(`${API}/products/${currentProduct}/summary`);
+  const data = await res.json();
+
+  if (!res.ok) return panel.innerHTML = `<p>Error: ${data.detail}</p>`;
+
+  panel.innerHTML = `
+    <h3>
+      <span class="sentiment-badge ${data.overall_sentiment}" style="margin-right:8px">${data.overall_sentiment}</span>
+      AI Product Summary
+    </h3>
+    <div class="pros-cons">
+      <div class="pros">
+        <h4>Pros</h4>
+        <ul>${data.top_pros.map(p => `<li>${p}</li>`).join("")}</ul>
+      </div>
+      <div class="cons">
+        <h4>Cons</h4>
+        <ul>${data.top_cons.map(c => `<li>${c}</li>`).join("")}</ul>
+      </div>
+    </div>
+    <h4 style="font-size:13px;margin-bottom:6px">Suggested Improvements</h4>
+    <ul>${data.recommended_improvements.map(i => `<li>${i}</li>`).join("")}</ul>`;
+}
+
+// ── Init ──────────────────────────────────────────────
+let allProducts = [];
+
+async function loadProducts() {
+  try {
+    const res = await fetch(`${API}/products/`);
+    allProducts = await res.json();
+    renderProducts(allProducts);
+  } catch (e) {
+    document.getElementById("products-grid").innerHTML =
+      '<p style="color:#c00;font-size:14px">⚠️ Cannot connect to server. Make sure the backend is running on port 8000.</p>';
+  }
+}
+
+async function deleteReview(reviewId) {
+  if (!confirm("Are you sure you want to delete this review?")) return;
+  
+  const res = await fetch(`${API}/reviews/${reviewId}`, { method: "DELETE" });
+  
+  if (res.ok) {
+    document.getElementById(`review-${reviewId}`).remove();
+  } else {
+    alert("Failed to delete review.");
+  }
+}
+function toggleDark() {
+  document.body.classList.toggle('dark');
+  const btn = document.getElementById('theme-btn');
+  const isDark = document.body.classList.contains('dark');
+  btn.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+}
+
+
+if (localStorage.getItem('theme') === 'dark') {
+  document.body.classList.add('dark');
+  document.getElementById('theme-btn').textContent = '☀️ Light';
+}
+
+function toggleChat() {
+  const robot = document.getElementById('robot-container');
+  const win = document.getElementById('chat-window');
+  const isOpen = robot.classList.toggle('robot-open');
+  win.classList.toggle('open', isOpen);
+  if (isOpen) document.getElementById('chat-input').focus();
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  const messages = document.getElementById('chat-messages');
+  messages.innerHTML += `<div class="msg user">${msg}</div>`;
+  input.value = '';
+  messages.innerHTML += `<div class="msg bot typing" id="typing">Thinking...</div>`;
+  messages.scrollTop = messages.scrollHeight;
+
+  const res = await fetch(`${API}/products/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: msg })
+  });
+
+  const data = await res.json();
+  document.getElementById('typing').remove();
+  messages.innerHTML += `<div class="msg bot">${data.reply}</div>`;
+  messages.scrollTop = messages.scrollHeight;
+}
+
+async function showStats() {
+  const modal = document.getElementById('stats-modal');
+  modal.style.display = 'flex';
+  document.getElementById('stats-content').innerHTML = 'Loading...';
+
+  let d;
+  try {
+    const res = await fetch(`${API}/products/stats`);
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    d = await res.json();
+  } catch (e) {
+    document.getElementById('stats-content').innerHTML =
+      `<p style="color:#c00">⚠️ ${e.message}. Make sure the backend is running.</p>`;
+    return;
+  }
+
+  const pct = (n) => d.total_analyses > 0 ? Math.round(n / d.total_analyses * 100) : 0;
+
+  document.getElementById('stats-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:1.5rem">
+      <div style="background:#f5f5f5;border-radius:10px;padding:1rem;text-align:center">
+        <div style="font-size:24px;font-weight:600">${d.total_products}</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">Products</div>
+      </div>
+      <div style="background:#f5f5f5;border-radius:10px;padding:1rem;text-align:center">
+        <div style="font-size:24px;font-weight:600">${d.total_reviews}</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">Reviews</div>
+      </div>
+      <div style="background:#f5f5f5;border-radius:10px;padding:1rem;text-align:center">
+        <div style="font-size:24px;font-weight:600">${d.total_analyses}</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">Analyses</div>
+      </div>
+    </div>
+
+    <h3 style="font-size:14px;margin-bottom:10px">Sentiment Breakdown</h3>
+    <div style="margin-bottom:1.5rem">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:12px;width:60px;color:#1a7a4a">Positive</span>
+        <div style="flex:1;background:#eee;border-radius:10px;height:12px">
+          <div style="width:${pct(d.sentiment.positive)}%;background:#1D9E75;height:12px;border-radius:10px;transition:width 0.6s"></div>
+        </div>
+        <span style="font-size:12px;color:#666;width:40px">${d.sentiment.positive} (${pct(d.sentiment.positive)}%)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:12px;width:60px;color:#856404">Neutral</span>
+        <div style="flex:1;background:#eee;border-radius:10px;height:12px">
+          <div style="width:${pct(d.sentiment.neutral)}%;background:#f5a623;height:12px;border-radius:10px;transition:width 0.6s"></div>
+        </div>
+        <span style="font-size:12px;color:#666;width:40px">${d.sentiment.neutral} (${pct(d.sentiment.neutral)}%)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:12px;width:60px;color:#9b1c1c">Negative</span>
+        <div style="flex:1;background:#eee;border-radius:10px;height:12px">
+          <div style="width:${pct(d.sentiment.negative)}%;background:#E24B4A;height:12px;border-radius:10px;transition:width 0.6s"></div>
+        </div>
+        <span style="font-size:12px;color:#666;width:40px">${d.sentiment.negative} (${pct(d.sentiment.negative)}%)</span>
+      </div>
+    </div>
+
+    <h3 style="font-size:14px;margin-bottom:10px">Top Rated Products</h3>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${d.top_products.map((p, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f9f9f9;border-radius:8px">
+          <span style="font-size:16px">${['🥇','🥈','🥉'][i]}</span>
+          <span style="flex:1;font-size:13px">${p.name}</span>
+          <span style="color:#f5a623;font-size:13px">${'★'.repeat(Math.round(p.avg_rating))} ${p.avg_rating}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+function closeStats() {
+  document.getElementById('stats-modal').style.display = 'none';
+}
+
+function exportPDF(reviewId) {
+  const panel = document.getElementById(`analysis-${reviewId}`);
+  if (!panel) return;
+
+  const sentiment = panel.querySelector('.sentiment-badge')?.textContent || '';
+  const summary = panel.querySelector('p')?.textContent || '';
+  const themes = [...panel.querySelectorAll('.theme-tag')].map(t => t.textContent).join(', ');
+  const confidence = panel.querySelectorAll('p')[1]?.textContent || '';
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  doc.setFillColor(26, 26, 46);
+  doc.rect(0, 0, 210, 30, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('AI Review Analysis Report', 105, 18, { align: 'center' });
+
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Sentiment:', 20, 50);
+  doc.setFont('helvetica', 'normal');
+  doc.text(sentiment.toUpperCase(), 70, 50);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Key Themes:', 20, 65);
+  doc.setFont('helvetica', 'normal');
+  const themesLines = doc.splitTextToSize(themes, 140);
+  doc.text(themesLines, 70, 65);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Summary:', 20, 85);
+  doc.setFont('helvetica', 'normal');
+  const summaryLines = doc.splitTextToSize(summary, 170);
+  doc.text(summaryLines, 20, 95);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(confidence, 20, 95 + summaryLines.length * 7 + 10);
+
+  doc.setFontSize(9);
+  doc.setTextColor(150, 150, 150);
+  doc.text(`Generated by AI Review Analyzer • ${new Date().toLocaleDateString()}`, 105, 285, { align: 'center' });
+
+  doc.save(`review-${reviewId}-analysis.pdf`);
+}
+
+loadProducts();
+
+function renderProducts(products) {
+  const grid = document.getElementById("products-grid");
+  grid.innerHTML = "";
+  if (products.length === 0) {
+    grid.innerHTML = '<p style="color:#888;font-size:14px">No products found.</p>';
+    return;
+  }
+  products.forEach(p => {
+    grid.innerHTML += `
+      <div class="product-card" onclick="showDetail(${p.id}, '${p.name}')">
+        ${p.image_url
+          ? `<img src="${p.image_url}" alt="${p.name}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:10px"/>`
+          : `<div style="width:100%;height:140px;background:#f0f0f0;border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:13px">No image</div>`
+        }
+        <h3>${p.name}</h3>
+        <div class="category">${p.category || "Uncategorized"}</div>
+        <div class="stars">${stars(p.avg_rating)}</div>
+      </div>`;
+  });
+}
+
+function filterProducts(query) {
+  const filtered = allProducts.filter(p =>
+    p.name.toLowerCase().includes(query.toLowerCase()) ||
+    (p.category && p.category.toLowerCase().includes(query.toLowerCase()))
+  );
+  renderProducts(filtered);
+}
+</script>
+
+<div class="chat-window" id="chat-window">
+  <div class="chat-header">
+    <span>🤖 Shopping Assistant</span>
+    <span onclick="toggleChat()" style="cursor:pointer;opacity:0.8">✕</span>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="msg bot">Hi! I can help you find the perfect electronics. What are you looking for? 👋<br><br>مرحباً! أقدر أساعدك تختار أفضل منتج. شو تبي؟</div>
+  </div>
+  <div class="chat-input-row">
+    <input id="chat-input" placeholder="Ask me anything..." onkeydown="if(event.key==='Enter') sendChat()"/>
+    <button onclick="sendChat()">Send</button>
+  </div>
+</div>
+
+<div id="robot-container" onclick="toggleChat()">
+<svg viewBox="0 0 280 400" width="150" height="214" xmlns="http://www.w3.org/2000/svg">
+<style>
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes wave{0%,100%{transform:rotate(0deg)}25%{transform:rotate(-40deg)}75%{transform:rotate(30deg)}}
+@keyframes blink{0%,85%,100%{transform:scaleY(1)}90%{transform:scaleY(0.05)}}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes bubble{0%{opacity:0;transform:scale(0.2)}100%{opacity:1;transform:scale(1)}}
+@keyframes bounce-ant{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.floater{animation:float 2.6s ease-in-out infinite}
+.waver{animation:wave 1.5s ease-in-out infinite;transform-origin:6px 6px}
+.bl{animation:blink 3s ease-in-out infinite;transform-origin:105px 175px}
+.br{animation:blink 3s ease-in-out infinite 0.2s;transform-origin:165px 175px}
+.glower{animation:glow 2s ease-in-out infinite}
+.bubbly{animation:bubble 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards}
+.ant1{animation:bounce-ant 1.8s ease-in-out infinite}
+.ant2{animation:bounce-ant 1.8s ease-in-out infinite 0.3s}
+</style>
+
+<g class="bubbly robot-bubble" style="transform-origin:140px 55px">
+  <rect x="10" y="2" width="260" height="78" rx="18" fill="#5b5ef4"/>
+  <polygon points="105,78 135,78 112,98" fill="#5b5ef4"/>
+  <text x="140" y="32" text-anchor="middle" fill="white" font-family="Arial" font-size="22" font-weight="bold">Hey there! 👋</text>
+  <text x="140" y="60" text-anchor="middle" fill="white" font-family="Arial" font-size="18">Ask me anything!</text>
+</g>
+
+<g class="floater">
+  <g class="ant1" style="transform-origin:105px 95px">
+    <rect x="103" y="72" width="4" height="26" rx="2" fill="#888"/>
+    <circle cx="105" cy="70" r="7" fill="#5b5ef4"/>
+    <circle cx="105" cy="70" r="4" fill="white"/>
+  </g>
+  <g class="ant2" style="transform-origin:175px 95px">
+    <rect x="173" y="72" width="4" height="26" rx="2" fill="#888"/>
+    <circle cx="175" cy="70" r="7" fill="#5b5ef4"/>
+    <circle cx="175" cy="70" r="4" fill="white"/>
+  </g>
+  <ellipse cx="140" cy="148" rx="68" ry="65" fill="white"/>
+  <ellipse cx="140" cy="148" rx="68" ry="65" fill="none" stroke="#e0e0e0" stroke-width="3"/>
+  <ellipse cx="80" cy="140" rx="11" ry="14" fill="#f0f0f0" stroke="#ddd" stroke-width="2"/>
+  <ellipse cx="200" cy="140" rx="11" ry="14" fill="#f0f0f0" stroke="#ddd" stroke-width="2"/>
+  <circle cx="80" cy="137" r="4" fill="#5b5ef4" opacity="0.4"/>
+  <circle cx="200" cy="137" r="4" fill="#5b5ef4" opacity="0.4"/>
+  <rect x="90" y="148" width="100" height="68" rx="18" fill="#1a1a2e"/>
+  <rect x="93" y="151" width="94" height="62" rx="15" fill="#0d0d1a"/>
+  <g class="bl">
+    <ellipse cx="115" cy="178" rx="16" ry="18" fill="#5b5ef4" opacity="0.3"/>
+    <ellipse cx="115" cy="178" rx="12" ry="14" fill="#5b5ef4"/>
+    <ellipse cx="115" cy="178" rx="7" ry="8" fill="#7c7fff"/>
+    <ellipse cx="115" cy="178" rx="3" ry="4" fill="#0d0d1a"/>
+    <ellipse cx="111" cy="173" rx="3" ry="2" fill="white" opacity="0.8"/>
+    <g class="glower"><ellipse cx="115" cy="178" rx="13" ry="15" fill="none" stroke="#5b5ef4" stroke-width="1.5" opacity="0.5"/></g>
+  </g>
+  <g class="br">
+    <ellipse cx="165" cy="178" rx="16" ry="18" fill="#5b5ef4" opacity="0.3"/>
+    <ellipse cx="165" cy="178" rx="12" ry="14" fill="#5b5ef4"/>
+    <ellipse cx="165" cy="178" rx="7" ry="8" fill="#7c7fff"/>
+    <ellipse cx="165" cy="178" rx="3" ry="4" fill="#0d0d1a"/>
+    <ellipse cx="161" cy="173" rx="3" ry="2" fill="white" opacity="0.8"/>
+    <g class="glower"><ellipse cx="165" cy="178" rx="13" ry="15" fill="none" stroke="#5b5ef4" stroke-width="1.5" opacity="0.5"/></g>
+  </g>
+  <path d="M126 204 Q140 216 154 204" fill="none" stroke="#5b5ef4" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="126" cy="204" r="2.5" fill="#5b5ef4"/>
+  <circle cx="154" cy="204" r="2.5" fill="#5b5ef4"/>
+  <rect x="88" y="218" width="104" height="4" rx="2" fill="#e8e8f0"/>
+  <ellipse cx="140" cy="268" rx="56" ry="58" fill="white"/>
+  <ellipse cx="140" cy="268" rx="56" ry="58" fill="none" stroke="#e0e0e0" stroke-width="2.5"/>
+  <ellipse cx="140" cy="252" rx="36" ry="10" fill="#f0f0f0"/>
+  <ellipse cx="140" cy="260" rx="36" ry="10" fill="#e8e8e8"/>
+  <ellipse cx="140" cy="268" rx="36" ry="10" fill="#f0f0f0"/>
+  <circle cx="140" cy="278" r="11" fill="#f5f5f5" stroke="#e0e0e0" stroke-width="1.5"/>
+  <circle cx="140" cy="278" r="7" fill="#5b5ef4" opacity="0.8"/>
+  <circle cx="140" cy="278" r="3.5" fill="white"/>
+  <ellipse cx="80" cy="264" rx="14" ry="18" fill="#f5f5f5" stroke="#e0e0e0" stroke-width="2"/>
+  <ellipse cx="200" cy="264" rx="14" ry="18" fill="#f5f5f5" stroke="#e0e0e0" stroke-width="2"/>
+  <g class="waver" style="transform-origin:200px 248px">
+    <g transform="translate(205,248)">
+      <ellipse cx="10" cy="6" rx="10" ry="8" fill="#ededff" stroke="#d0d0f0" stroke-width="1.5"/>
+      <rect x="2" y="12" width="16" height="22" rx="8" fill="#f0f0ff" stroke="#d0d0f0" stroke-width="1.5"/>
+      <ellipse cx="10" cy="36" rx="12" ry="8" fill="#e8e8ff" stroke="#d0d0f0" stroke-width="1"/>
+      <circle cx="6" cy="40" r="3" fill="#ddd"/>
+      <circle cx="14" cy="40" r="3" fill="#ddd"/>
+    </g>
+  </g>
+  <g transform="translate(58,248)">
+    <ellipse cx="10" cy="6" rx="10" ry="8" fill="#ededff" stroke="#d0d0f0" stroke-width="1.5"/>
+    <rect x="2" y="12" width="16" height="22" rx="8" fill="#f0f0ff" stroke="#d0d0f0" stroke-width="1.5"/>
+    <ellipse cx="10" cy="36" rx="12" ry="8" fill="#e8e8ff" stroke="#d0d0f0" stroke-width="1"/>
+    <circle cx="6" cy="40" r="3" fill="#ddd"/>
+    <circle cx="14" cy="40" r="3" fill="#ddd"/>
+  </g>
+  <ellipse cx="118" cy="328" rx="22" ry="26" fill="white" stroke="#e0e0e0" stroke-width="2"/>
+  <ellipse cx="162" cy="328" rx="22" ry="26" fill="white" stroke="#e0e0e0" stroke-width="2"/>
+  <ellipse cx="112" cy="350" rx="18" ry="11" fill="#e8e8f0" stroke="#ddd" stroke-width="1.5"/>
+  <ellipse cx="168" cy="350" rx="18" ry="11" fill="#e8e8f0" stroke="#ddd" stroke-width="1.5"/>
+  <ellipse cx="108" cy="358" rx="22" ry="10" fill="#d8d8e8" stroke="#ccc" stroke-width="1"/>
+  <ellipse cx="172" cy="358" rx="22" ry="10" fill="#d8d8e8" stroke="#ccc" stroke-width="1"/>
+</g>
+</svg>
+</div>
+<div id="stats-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center">
+  <div id="stats-box" style="background:white;border-radius:16px;padding:2rem;width:90%;max-width:500px;position:relative">
+    <button onclick="closeStats()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:20px;cursor:pointer;color:#888">✕</button>
+    <h2 style="margin-bottom:1.5rem;font-size:1.2rem">📊 Dashboard</h2>
+    <div id="stats-content">Loading...</div>
+  </div>
+</div>
+</body>
+</html>
